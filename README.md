@@ -120,7 +120,7 @@ TODO: Add Linux installation commands for the RTL and hardware dependencies.
 
 ### macOS
 
-Install the Xcode command line tools and common packages:
+Install the Xcode command line tools and common packages using the [homebrew](https://brew.sh) packet manager:
 
 ```sh
 xcode-select --install
