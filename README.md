@@ -92,16 +92,12 @@ TODO: Add the RTL and hardware scripts to the layout.
 
 Install the dependencies before running the scripts.
 
-These versions come from OpenVADL. Native builds haven't been verified yet.
-
 | Scope | Requirements |
 |---|---|
 | Common | Bash 3.2+, Python 3.11+, Git, Make, a C/C++ toolchain with C++17 support, CMake 3.20+, Ninja, curl, tar, gzip, unzip, and CA certificates |
-| OpenVADL | A working `openvadl` installation on `PATH` |
 | QEMU ISS | pkg-config, GLib 2.66+, Pixman, libfdt, zlib, Meson 1.5.0, and pycotap 1.3.1 |
+| HDL/ASIC | JDK 17 or 21 LTS, sbt, Yosys with ABC, OpenROAD, and Sky130 Liberty/LEF files (included in `build-rtl/pdk/`) |
 | Optional compiler cache | sccache or ccache |
-
-TODO: List the RTL and hardware dependencies and versions.
 
 ### Linux
 
@@ -116,7 +112,20 @@ sudo apt install build-essential git curl ca-certificates cmake ninja-build \
 
 Other Linux distributions need equivalent packages and development headers.
 
-TODO: Add Linux installation commands for the RTL and hardware dependencies.
+For the HDL/ASIC flow, install a JDK and Yosys (including ABC):
+
+```sh
+sudo apt install openjdk-17-jdk yosys
+```
+
+Install sbt through its
+[official apt repository](https://www.scala-sbt.org/1.x/docs/Installing-sbt-on-Linux.html#Ubuntu+and+other+Debian-based+distributions).
+For a newer Yosys, prebuilt binaries are available through the
+[OSS CAD Suite](https://github.com/YosysHQ/oss-cad-suite-build#installation).
+OpenROAD provides downloadable Ubuntu `.deb` packages installable with
+`sudo apt install ./PACKAGE.deb`. See the
+[OpenROAD installation instructions](https://openroad.readthedocs.io/en/latest/user/Build.html)
+for downloads or source builds.
 
 ### macOS
 
@@ -128,7 +137,15 @@ brew install git python@3.12 cmake ninja pkgconf glib pixman dtc zlib \
   curl unzip
 ```
 
-TODO: Add macOS installation commands for the RTL and hardware dependencies.
+Install sbt and Yosys (including ABC) with Homebrew:
+
+```sh
+brew install sbt yosys
+```
+
+OpenROAD can be built from source following the
+[OpenROAD build instructions](https://openroad.readthedocs.io/en/latest/user/Build.html).
+Add the directory containing the built `openroad` binary to `PATH`.
 
 ### Java management (optional)
 
