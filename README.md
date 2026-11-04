@@ -124,7 +124,7 @@ Install the Xcode command line tools and common packages using the [homebrew](ht
 
 ```sh
 xcode-select --install
-brew install git python@3.12 cmake ninja pkgconf glib pixman dtc zlib \
+brew install python@3.12 cmake ninja pkgconf glib pixman dtc zlib \
   curl unzip
 ```
 
