@@ -1,21 +1,26 @@
 #!/usr/bin/env bash
 #
-# Generates an LLVM compiler backend (LCB) from a VADL specification and
-# compiles the resulting LLVM toolchain with the Makefile that openvadl
-# generates. Reports how long each step took. Expects openvadl in the PATH.
-#
-# Works with the bash 3.2 shipped by macOS as well as with bash on Linux.
+# Generate an LLVM compiler backend (LCB) from a VADL specification.
+# Compile the toolchain with the generated Makefile and report generation/build times.
+# Requires OpenVADL in PATH. Sources and binaries use --output-dir (default: output).
+# Run from any directory. Relative paths resolve from the dse project root.
+# Supports Bash 3.2 on macOS and Bash on Linux.
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+cd "$ROOT"
+source "$SCRIPT_DIR/lib/compiler-cache.sh"
+PYTHON="${PYTHON:-python3}"
+
 # ---------------------------------------------------------------------------
-# Defaults. LLVM build settings left empty are not passed to make, so the
-# defaults of the generated Makefile apply.
+# Defaults. Empty LLVM build settings use the generated Makefile's defaults.
 # ---------------------------------------------------------------------------
 TARGET=""
 VARIANT=""
 OUTPUT_DIR="output"
-CACHE="none"
+CACHE="auto"
 BUILD_TYPE=""
 # Upstream LLVM targets built next to the generated one.
 UPSTREAM_TARGETS="RISCV"
@@ -23,6 +28,9 @@ JOBS=""
 LINK_JOBS=""
 CLEAN=0
 
+# ---------------------------------------------------------------------------
+# Help
+# ---------------------------------------------------------------------------
 usage() {
   cat <<EOF
 Usage: $(basename "$0") --variant NAME [options]
@@ -44,13 +52,15 @@ Specification / generation:
                              crc012   RV32ICustomCrc (crc0, crc1 and crc2)
                                       of specs/rv32iCustom.vadl
                            The specification paths are relative to the
-                           current directory.
+                           dse project root.
   -o, --output-dir DIR     openvadl output directory; sources and the Makefile
-                           are generated into DIR/lcb (default: $OUTPUT_DIR)
+                           are generated into DIR/lcb (default: $OUTPUT_DIR).
+                           Relative paths start at the dse project root.
 
 LLVM build (options not given fall back to the generated Makefile's defaults):
       --cache TOOL         Compiler cache used as compiler launcher:
-                           none, sccache or ccache (default: $CACHE)
+                           auto, ccache, sccache, or none (default: auto).
+                           auto prefers ccache, then sccache, then none.
   -b, --build-type TYPE    Debug, Release, RelWithDebInfo or MinSizeRel
                            (LLVM_CMAKE_BUILD_TYPE)
   -j, --jobs N             LLVM_PARALLEL_COMPILE_JOBS
@@ -98,13 +108,7 @@ done
 # ---------------------------------------------------------------------------
 # Validation and derived values
 # ---------------------------------------------------------------------------
-case "$CACHE" in
-  none|sccache|ccache) ;;
-  *) die "invalid cache '$CACHE' (expected none, sccache or ccache)" ;;
-esac
-if [ "$CACHE" != none ]; then
-  command -v "$CACHE" >/dev/null || die "'$CACHE' not found in PATH; use --cache none"
-fi
+CACHE="$(select_compiler_cache "$CACHE")" || exit $?
 
 case "$BUILD_TYPE" in
   ""|Debug|Release|RelWithDebInfo|MinSizeRel) ;;
@@ -113,8 +117,8 @@ esac
 
 [ -n "$VARIANT" ] || die "no variant given; pass --variant NAME"
 
-# Specification and ISA of the variant. The crc variants override the
-# TargetIsa model of rv32iCustom.vadl; rv32i.vadl has only one ISA.
+# The CRC variants select TargetIsa in rv32iCustom.vadl.
+# rv32i.vadl has only one ISA.
 SPEC=""
 VARIANT_ISA=""
 MODEL_ARGS=()
@@ -131,7 +135,9 @@ case "$VARIANT" in
 esac
 
 [ -f "$SPEC" ] || die "specification '$SPEC' does not exist"
-command -v openvadl >/dev/null || die "'openvadl' not found in PATH"
+PYTHON="$PYTHON" bash "$SCRIPT_DIR/check-deps.sh" lcb --cache "$CACHE" || exit 1
+source "$SCRIPT_DIR/python-env.sh"
+use_project_python "$ROOT" || exit 1
 
 if [ -z "$TARGET" ]; then
   TARGET="$(basename "$SPEC" .vadl | tr '[:upper:]' '[:lower:]')"
@@ -140,11 +146,7 @@ fi
 GEN_DIR="$OUTPUT_DIR/lcb"
 MAKEFILE="$GEN_DIR/Makefile"
 
-for tool in make cmake ninja git; do
-  command -v "$tool" >/dev/null || die "'$tool' not found in PATH"
-done
-
-# Wall-clock time in seconds with millisecond precision. `date +%s.%N` is not
+# Wall-clock time in seconds with millisecond precision. `date +%s.%N` isn't
 # supported on macOS, so perl is used instead (available on macOS and Linux).
 now() {
   perl -MTime::HiRes=time -e 'printf "%.3f\n", time'
@@ -172,19 +174,22 @@ makefile_value() {
   sed -n -E "s/^[[:space:]]*$1[[:space:]]*\??=[[:space:]]*\"?([^\"]*)\"?[[:space:]]*$/\1/p" "$MAKEFILE" | head -n 1
 }
 
-# The generated Makefile hard-codes the compiler launcher (sccache) in the cmake
-# call. Replace it with a variable that defaults to the original value, so it can
-# be disabled from the command line. Running this on a patched Makefile is a no-op.
+# OpenVADL's Makefile selects sccache only for C++.
+# Apply the selected launcher to both C and C++.
 patch_makefile_launcher() {
   local launcher tmp
-  if grep -q '^LLVM_COMPILER_LAUNCHER ?=' "$MAKEFILE"; then
-    return
-  fi
   launcher="$(sed -n -E 's/.*-DCMAKE_CXX_COMPILER_LAUNCHER=([^[:space:]\\]*).*/\1/p' "$MAKEFILE" | head -n 1)"
   tmp="$(mktemp)"
   {
-    echo "LLVM_COMPILER_LAUNCHER ?= $launcher"
-    sed -E 's/(-DCMAKE_(C|CXX)_COMPILER_LAUNCHER=)[^[:space:]\\]*/\1$(LLVM_COMPILER_LAUNCHER)/' "$MAKEFILE"
+    if ! grep -q '^LLVM_COMPILER_LAUNCHER ?=' "$MAKEFILE"; then
+      echo "LLVM_COMPILER_LAUNCHER ?= $launcher"
+    fi
+    sed -E 's/(-DCMAKE_(C|CXX)_COMPILER_LAUNCHER=)[^[:space:]\\]*/\1$(LLVM_COMPILER_LAUNCHER)/g' "$MAKEFILE" |
+      if grep -q -- '-DCMAKE_C_COMPILER_LAUNCHER=' "$MAKEFILE"; then
+        cat
+      else
+        sed 's/-DCMAKE_CXX_COMPILER_LAUNCHER=/-DCMAKE_C_COMPILER_LAUNCHER=$(LLVM_COMPILER_LAUNCHER) -DCMAKE_CXX_COMPILER_LAUNCHER=/'
+      fi
   } > "$tmp"
   mv "$tmp" "$MAKEFILE"
 }
@@ -209,7 +214,7 @@ VADL_TIME="$(elapsed "$start" "$(now)")"
 echo "VADL generation took $(fmt_duration "$VADL_TIME")"
 
 # ---------------------------------------------------------------------------
-# Step 2: LLVM compilation via the generated Makefile
+# Step 2: LLVM compilation with the generated Makefile
 # ---------------------------------------------------------------------------
 [ -f "$MAKEFILE" ] || die "openvadl generated no Makefile at '$MAKEFILE'"
 
@@ -220,8 +225,8 @@ MAKE_VARS=()
 MAKE_VARS+=("LLVM_UPSTREAM_TARGETS=$UPSTREAM_TARGETS")
 [ -z "$JOBS" ] || MAKE_VARS+=("LLVM_PARALLEL_COMPILE_JOBS=$JOBS")
 [ -z "$LINK_JOBS" ] || MAKE_VARS+=("LLVM_PARALLEL_LINK_JOBS=$LINK_JOBS")
-# The cache is always set as compiler launcher. LLVM's own ccache support
-# (LLVM_CCACHE_BUILD) is disabled, so no two caches are stacked.
+# Use the selected cache as the compiler launcher.
+# Disable LLVM_CCACHE_BUILD to prevent two caches from running together.
 if [ "$CACHE" = none ]; then
   MAKE_VARS+=("LLVM_CCACHE_BUILD=0" "LLVM_COMPILER_LAUNCHER=")
 else

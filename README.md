@@ -78,7 +78,8 @@ TODO: Remove the layout, just used as implementation reference
 specs/                      # Upstream RISC-V snapshot and custom specifications
 workloads/crc32/            # Application, fixed input, and bare-metal runtime
 scripts/
-  common.sh                # Shared checks, output, timing, and logging
+  check-deps.sh             # Common and backend-specific dependency checks
+  lib/                      # Shared Bash probes, shell helpers, and ISS results
   build-lcb.sh              # Generate and build the LLVM toolchain
   build-iss.sh              # Generate and build the QEMU ISS
   run-crc32.sh              # Build and test the workload
@@ -91,13 +92,15 @@ TODO: Add the RTL and hardware scripts to the layout.
 ## Requirements
 
 Install the dependencies before running the scripts.
+The prebuilt OpenVADL distribution needs no separate Java installation.
+The HDL flow requires a JDK for sbt.
 
 | Scope | Requirements |
 |---|---|
-| Common | Bash 3.2+, Python 3.11+, Git, Make, a C/C++ toolchain with C++17 support, CMake 3.20+, Ninja, curl, tar, gzip, unzip, and CA certificates |
-| QEMU ISS | pkg-config, GLib 2.66+, Pixman, libfdt, zlib, Meson 1.5.0, and pycotap 1.3.1 |
+| Common | Bash 3.2+, Python 3.11+, jq 1.6+, Git, Make, a C/C++ toolchain with C++17 support, CMake 3.20+, Ninja, curl, tar, gzip, unzip, and CA certificates |
+| QEMU ISS | pkg-config, GLib 2.66+, Pixman 0.21.8+, libfdt 1.5.1+, and zlib |
 | HDL/ASIC | JDK 17 or 21 LTS, sbt, Yosys with ABC, OpenROAD, and Sky130 Liberty/LEF files (included in `build-rtl/pdk/`) |
-| Optional compiler cache | sccache or ccache |
+| Optional compiler cache | ccache (preferred) or sccache |
 
 ### Linux
 
@@ -105,7 +108,7 @@ These commands are for Ubuntu 24.04:
 
 ```sh
 sudo apt update
-sudo apt install build-essential git curl ca-certificates cmake ninja-build \
+sudo apt install build-essential git curl ca-certificates cmake ninja-build jq \
   pkg-config python3 python3-venv python3-pip libglib2.0-dev libpixman-1-dev \
   libfdt-dev zlib1g-dev tar gzip zip unzip
 ```
@@ -133,7 +136,7 @@ Install the Xcode command line tools and common packages using the [homebrew](ht
 
 ```sh
 xcode-select --install
-brew install python@3.12 cmake ninja pkgconf glib pixman dtc zlib \
+brew install python@3.12 cmake ninja jq pkgconf glib pixman dtc zlib \
   curl unzip
 ```
 
@@ -147,36 +150,17 @@ OpenROAD can be built from source following the
 [OpenROAD build instructions](https://openroad.readthedocs.io/en/latest/user/Build.html).
 Add the directory containing the built `openroad` binary to `PATH`.
 
-### Java management (optional)
-
-[SDKMAN](https://sdkman.io/install/) manages JDK installations on Linux and macOS.
-It needs `curl`, `zip`, and `unzip`. Install it and list available Java versions:
-
-```sh
-curl -s "https://get.sdkman.io" | bash
-source "$HOME/.sdkman/bin/sdkman-init.sh"
-sdk list java
-```
-
-Run `sdk install java VERSION` to install a JDK and `sdk use java VERSION` to
-select it for the current shell. Replace `VERSION` with an identifier from the
-list. See [SDKMAN usage](https://sdkman.io/usage/).
-
-### QEMU Python dependencies
-
-Install the Python dependencies into a virtual environment. Use that environment's
-Python for the QEMU build:
-
-```sh
-python3 -m venv .venv
-.venv/bin/python -m pip install meson==1.5.0 pycotap==1.3.1
-```
-
 ## Script usage
 
 TODO: Implement the script interface shown below.
 
-Run the scripts from the project root. All scripts accept `--variant NAME`:
+Run the entry scripts from any directory. The build scripts and dependency
+checker use the `dse` project root as their working directory. Relative paths,
+including `--output-dir`, the RTL specification, and `PYTHON`, resolve from that root.
+Absolute paths work as given. The Python environment setup script finds the
+project root automatically when its optional `ROOT` argument is omitted.
+
+Both artifact build scripts accept `--variant NAME`:
 `rv32i`, `crc0`, `crc1`, `crc2`, or `crc012`. The `crc012` variant includes all
 three custom instructions.
 
@@ -199,12 +183,16 @@ These scripts produce artifact executables under `gen/VARIANT/lcb/` and
 |---|---|---|
 | `--jobs N` | Both build scripts | Limit parallel compilation |
 | `--link-jobs N` | `build-lcb.sh` | Limit parallel LLVM linking |
-| `--cache none`, `--cache sccache`, or `--cache ccache` | `build-lcb.sh` | Select the compiler cache, with `none` as the default |
+| `--cache auto`, `--cache ccache`, `--cache sccache`, or `--cache none` | All build scripts | Select the compiler cache, with `auto` as the default |
 | `--clean` | Both build scripts | Remove compiled build outputs before rebuilding |
 
 The build scripts download the LLVM and QEMU sources on the first build. Later
 builds reuse existing sources and build outputs. `--clean` leaves compiler caches
 intact.
+
+All build scripts use `ccache` when it is available, otherwise `sccache` when it
+is available, and no compiler cache otherwise. Use `--cache` to override this
+selection. `--cache none` disables compiler caching.
 
 TODO: Add the RTL artifact build scripts and their options.
 
