@@ -42,3 +42,11 @@ prepare_backend_build() {
   use_project_python "$ROOT" || exit 1
   [ -n "$JOBS" ] || JOBS="$(cpu_count)"
 }
+
+report_compiler_cache_stats() {
+  case "$1" in
+    ccache|sccache)
+      run "$1" --show-stats || report "warning: failed to read $1 statistics"
+      ;;
+  esac
+}

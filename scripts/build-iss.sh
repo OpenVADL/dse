@@ -121,6 +121,7 @@ run make -j "$JOBS"
 [ -x "$BINARY" ] || die "QEMU build did not produce '$BINARY'"
 BUILD_SECONDS="$(elapsed "$start" "$(now)")"
 STAGE=complete
+report_compiler_cache_stats "$CACHE"
 
 # ---------------------------------------------------------------------------
 # Summary. The exit trap writes run.json and appends build-times.csv.

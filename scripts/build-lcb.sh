@@ -12,6 +12,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 source "$ROOT/scripts/lib/build-common.sh"
+source "$ROOT/scripts/lib/llvm-options.sh"
 VARIANT=""
 TARGET=""
 OUTPUT_DIR=""
@@ -22,6 +23,9 @@ UPSTREAM_TARGETS=RISCV
 CACHE=auto
 CLEAN=0
 PYTHON="${PYTHON:-python3}"
+LLVM_ASSERTIONS=On
+LLVM_DUMP=On
+LLVM_COMPATIBILITY_WORKAROUND=0
 
 # ---------------------------------------------------------------------------
 # Help
@@ -102,7 +106,7 @@ makefile_value() {
 }
 
 # OpenVADL's Makefile selects sccache only for C++.
-# Apply the selected launcher to both C and C++.
+# Apply the selected launcher to both C and C++ and enable dump support.
 patch_makefile_launcher() {
   local launcher tmp
   launcher="$(sed -n -E 's/.*-DCMAKE_CXX_COMPILER_LAUNCHER=([^[:space:]\\]*).*/\1/p' "$MAKEFILE" | head -n 1)"
@@ -116,6 +120,11 @@ patch_makefile_launcher() {
         cat
       else
         sed 's/-DCMAKE_CXX_COMPILER_LAUNCHER=/-DCMAKE_C_COMPILER_LAUNCHER=$(LLVM_COMPILER_LAUNCHER) -DCMAKE_CXX_COMPILER_LAUNCHER=/'
+      fi |
+      if grep -q -- '-DLLVM_ENABLE_DUMP=' "$MAKEFILE"; then
+        sed -E 's/(-DLLVM_ENABLE_DUMP=)[^[:space:]\\]*/\1$(LLVM_ENABLE_DUMP)/g'
+      else
+        sed 's/-DCMAKE_CXX_COMPILER_LAUNCHER=/-DLLVM_ENABLE_DUMP=$(LLVM_ENABLE_DUMP) -DCMAKE_CXX_COMPILER_LAUNCHER=/'
       fi
   } > "$tmp"
   mv "$tmp" "$MAKEFILE"
@@ -146,12 +155,16 @@ else
   BUILD_DIR="$GEN_DIR/$LLVM_SOURCE_PATH/build"
 fi
 BINARY="$BUILD_DIR/bin/clang"
+select_llvm_build_options "$BUILD_DIR"
+report "LLVM assertions: $LLVM_ASSERTIONS"
+report "LLVM dump support: $LLVM_DUMP"
 if [ "$CLEAN" -eq 1 ] && [ -d "$BUILD_DIR" ]; then
   run rm -rf "$BUILD_DIR"
 fi
 MAKE_VARS=("LLVM_CMAKE_BUILD_TYPE=$BUILD_TYPE" "LLVM_UPSTREAM_TARGETS=$UPSTREAM_TARGETS"
   "LLVM_PARALLEL_COMPILE_JOBS=$JOBS" "LLVM_PARALLEL_LINK_JOBS=$LINK_JOBS"
-  "CMAKE_CXX_STANDARD=17" "LLVM_CCACHE_BUILD=0")
+  "CMAKE_CXX_STANDARD=17" "LLVM_CCACHE_BUILD=0"
+  "LLVM_ENABLE_ASSERTIONS=$LLVM_ASSERTIONS" "LLVM_ENABLE_DUMP=$LLVM_DUMP")
 if [ "$CACHE" = none ]; then
   MAKE_VARS+=("LLVM_COMPILER_LAUNCHER=")
 else
@@ -163,6 +176,7 @@ for tool in clang llc llvm-mc llvm-objdump ld.lld; do
 done
 BUILD_SECONDS="$(elapsed "$start" "$(now)")"
 STAGE=complete
+report_compiler_cache_stats "$CACHE"
 
 # ---------------------------------------------------------------------------
 # Summary. The exit trap writes run.json and appends build-times.csv.

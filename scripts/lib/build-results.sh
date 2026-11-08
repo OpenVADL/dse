@@ -69,6 +69,8 @@ write_build_results() {
       '. + {cmake: $cmake, clang: (if $status == 0 then $version else null end)}')" || return 1 ;;
   esac
   record="$(jq -n \
+    --arg assertions "${LLVM_ASSERTIONS:-}" --arg dump "${LLVM_DUMP:-}" \
+    --argjson workaround "${LLVM_COMPATIBILITY_WORKAROUND:-0}" \
     --arg artifact "$ARTIFACT" --arg target "$TARGET" --arg build_type "${BUILD_TYPE:-}" \
     --argjson link_jobs "${LINK_JOBS:-null}" --argjson versions "$versions" \
     --arg variant "$VARIANT" --arg isa "$ISA" --arg binary "$BINARY" --arg stage "$STAGE" --arg cache "$CACHE" \
@@ -86,7 +88,10 @@ write_build_results() {
       versions: $versions,
       specification_sha256: $hashes, input_sha256: {},
       skipped_steps: ["compile-crc32", "run-iss", "run-rtl"], commands: $commands
-    }')" || return 1
+    } + (if $artifact == "lcb" then {
+      llvm_assertions: ($assertions == "On"), llvm_dump: ($dump == "On"),
+      llvm_compatibility_workaround: ($workaround == 1)
+    } else {} end)')" || return 1
 
   metadata="$RESULT_DIR/run.json"
   temporary="$(mktemp "$RESULT_DIR/run.json.XXXXXX")" || return 1
