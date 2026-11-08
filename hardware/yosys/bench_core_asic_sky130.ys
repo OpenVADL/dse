@@ -1,0 +1,10 @@
+read_verilog -sv @SYSTEM_VERILOG@
+hierarchy -check -top @TOP_MODULE@
+
+proc; opt; fsm; opt; memory; opt
+techmap; opt
+dfflibmap -liberty @LIBERTY@
+abc -liberty @LIBERTY@
+stat -liberty @LIBERTY@
+clean
+write_verilog @NETLIST@
