@@ -112,6 +112,11 @@ check_common_dependencies() {
   check_dependency 'C++17 compiler and linker' compile_probe cxx \
     $'#include <optional>\nint main() { return std::optional<int>(0).value(); }' || :
   check_dependency 'Python virtual environment support' probe_virtual_environment || :
+  if command -v sha256sum >/dev/null; then
+    check_dependency sha256sum sha256sum --version || :
+  else
+    check_dependency 'shasum (SHA-256)' shasum -a 256 /dev/null || :
+  fi
 }
 
 check_iss_dependencies() {
@@ -130,11 +135,6 @@ check_iss_dependencies() {
   fi
   if [ "$C_COMPILER_AVAILABLE" -eq 1 ]; then
     check_dependency 'libfdt >= 1.5.1 (headers and library)' probe_libfdt || :
-  fi
-  if command -v sha256sum >/dev/null; then
-    check_dependency sha256sum sha256sum --version || :
-  else
-    check_dependency 'shasum (SHA-256)' shasum -a 256 /dev/null || :
   fi
 }
 

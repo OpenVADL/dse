@@ -13,9 +13,7 @@ set -euo pipefail
 # ---------------------------------------------------------------------------
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
-source "$ROOT/scripts/lib/shell.sh"
-source "$ROOT/scripts/lib/iss-results.sh"
-source "$ROOT/scripts/lib/compiler-cache.sh"
+source "$ROOT/scripts/lib/build-common.sh"
 VARIANT=""
 JOBS=""
 CLEAN=0
@@ -47,13 +45,6 @@ On the first run, OpenVADL downloads QEMU and can request source confirmation.
 EOF
 }
 
-die() {
-  printf 'error: %s\n' "$*" >&2
-  if [ -n "${LOG:-}" ]; then printf 'error: %s\n' "$*" >> "$LOG"; fi
-  exit 1
-}
-need_arg() { [ $# -ge 2 ] && [ -n "$2" ] || die "option '$1' requires an argument"; }
-
 while [ $# -gt 0 ]; do
   case "$1" in
     --variant) need_arg "$@"; VARIANT="$2"; shift 2 ;;
@@ -68,32 +59,11 @@ done
 # ---------------------------------------------------------------------------
 # Validation and dependency checks
 # ---------------------------------------------------------------------------
-case "$VARIANT" in
-  rv32i) ISA=RV32ICustomCrcBase ;;
-  crc0) ISA=RV32ICustomCrc0 ;;
-  crc1) ISA=RV32ICustomCrc1 ;;
-  crc2) ISA=RV32ICustomCrc2 ;;
-  crc012) ISA=RV32ICustomCrc ;;
-  *) die "pass --variant rv32i, crc0, crc1, crc2, or crc012" ;;
-esac
-if [ -n "$JOBS" ]; then
-  case "$JOBS" in *[!0-9]*|0) die "--jobs requires a positive integer" ;; esac
-  [ "${JOBS#0}" = "$JOBS" ] || die "--jobs requires a positive integer without leading zeros"
-fi
-
-PYTHON_PATH="$(absolute_command "$PYTHON")" || die "'$PYTHON' not found in PATH"
-PYTHON="$PYTHON_PATH"
-CACHE="$(select_compiler_cache "$CACHE")" || exit $?
-PYTHON="$PYTHON" bash "$ROOT/scripts/check-deps.sh" iss --cache "$CACHE" || exit 1
-source "$ROOT/scripts/python-env.sh"
-use_project_python "$ROOT" || exit 1
-[ -n "$JOBS" ] || JOBS="$(cpu_count)"
+prepare_backend_build iss
 
 # ---------------------------------------------------------------------------
 # Output paths and QEMU source initialization
 # ---------------------------------------------------------------------------
-SPEC="$ROOT/specs/rv32iCustom.vadl"
-[ -f "$SPEC" ] || die "specification '$SPEC' does not exist"
 OUTPUT_DIR="$ROOT/gen/$VARIANT"
 GEN_DIR="$OUTPUT_DIR/iss"
 BUILD_DIR="$GEN_DIR/build"
@@ -109,16 +79,7 @@ fi
 # ---------------------------------------------------------------------------
 # Logs and result recording, including failed builds
 # ---------------------------------------------------------------------------
-mkdir -p "$RESULT_DIR"
-LOG="$RESULT_DIR/build-iss.log"
-: > "$LOG"
-COMMANDS="$(mktemp)"
-STARTED="$(now)"
-GENERATION_SECONDS=0
-BUILD_SECONDS=0
-STAGE=setup
-
-trap finish_iss EXIT
+start_build_recording iss
 
 report "Variant: $VARIANT ($ISA)"
 report "QEMU sources: $GEN_DIR"
@@ -127,10 +88,11 @@ report "Compiler cache: $CACHE"
 # ---------------------------------------------------------------------------
 # Step 1: QEMU source generation
 # ---------------------------------------------------------------------------
+report "Step 1: Generating QEMU sources"
 STAGE=generation
 start="$(now)"
 # Bash 3.2 treats an empty array as unset under nounset.
-run openvadl iss --model "TargetIsa=$ISA" --output "$OUTPUT_DIR" \
+run openvadl iss "${MODEL_ARGS[@]}" --output "$OUTPUT_DIR" \
   ${INIT_ARGS[@]+"${INIT_ARGS[@]}"} "$SPEC"
 GENERATION_SECONDS="$(elapsed "$start" "$(now)")"
 [ -f "$GEN_DIR/configure" ] || die "QEMU sources are missing from '$GEN_DIR'"
@@ -138,6 +100,7 @@ GENERATION_SECONDS="$(elapsed "$start" "$(now)")"
 # ---------------------------------------------------------------------------
 # Step 2: QEMU configuration and compilation
 # ---------------------------------------------------------------------------
+report "Step 2: Building QEMU"
 STAGE=build
 start="$(now)"
 if [ "$CLEAN" -eq 1 ]; then
