@@ -107,7 +107,7 @@ makefile_value() {
 
 # OpenVADL's Makefile selects sccache only for C++.
 # Apply the selected launcher to both C and C++ and enable dump support.
-patch_makefile_launcher() {
+patch_makefile_options() {
   local launcher tmp
   launcher="$(sed -n -E 's/.*-DCMAKE_CXX_COMPILER_LAUNCHER=([^[:space:]\\]*).*/\1/p' "$MAKEFILE" | head -n 1)"
   tmp="$(mktemp)"
@@ -125,6 +125,11 @@ patch_makefile_launcher() {
         sed -E 's/(-DLLVM_ENABLE_DUMP=)[^[:space:]\\]*/\1$(LLVM_ENABLE_DUMP)/g'
       else
         sed 's/-DCMAKE_CXX_COMPILER_LAUNCHER=/-DLLVM_ENABLE_DUMP=$(LLVM_ENABLE_DUMP) -DCMAKE_CXX_COMPILER_LAUNCHER=/'
+      fi |
+      if [ "$CACHE" = none ]; then
+        cat
+      else
+        sed 's/-DCMAKE_CXX_COMPILER_LAUNCHER=/-DCMAKE_C_FLAGS="$$LCB_CACHE_CFLAGS" -DCMAKE_CXX_FLAGS="$$LCB_CACHE_CXXFLAGS" -DCMAKE_CXX_COMPILER_LAUNCHER=/'
       fi
   } > "$tmp"
   mv "$tmp" "$MAKEFILE"
@@ -146,7 +151,7 @@ report "Step 2: Building LLVM"
 STAGE=build
 start="$(now)"
 [ -f "$MAKEFILE" ] || die "OpenVADL generated no Makefile at '$MAKEFILE'"
-patch_makefile_launcher
+patch_makefile_options
 LLVM_SOURCE_PATH="$(makefile_value LLVM_SOURCE_PATH)"
 [ -n "$LLVM_SOURCE_PATH" ] || die "generated Makefile has no LLVM_SOURCE_PATH"
 if [ "${LLVM_SOURCE_PATH:0:1}" = / ]; then
@@ -158,6 +163,16 @@ BINARY="$BUILD_DIR/bin/clang"
 select_llvm_build_options "$BUILD_DIR"
 report "LLVM assertions: $LLVM_ASSERTIONS"
 report "LLVM dump support: $LLVM_DUMP"
+configure_compiler_cache_paths "$CACHE" "$GEN_DIR"
+LCB_CACHE_CFLAGS="${CFLAGS:-}"
+LCB_CACHE_CXXFLAGS="${CXXFLAGS:-}"
+if [ "$CLEAN" -eq 0 ] && [ -f "$BUILD_DIR/CMakeCache.txt" ]; then
+  LCB_CACHE_CFLAGS="$(cmake_cache_value CMAKE_C_FLAGS "$BUILD_DIR")"
+  LCB_CACHE_CXXFLAGS="$(cmake_cache_value CMAKE_CXX_FLAGS "$BUILD_DIR")"
+fi
+LCB_CACHE_CFLAGS="$(compiler_cache_flags "$LCB_CACHE_CFLAGS")"
+LCB_CACHE_CXXFLAGS="$(compiler_cache_flags "$LCB_CACHE_CXXFLAGS")"
+export LCB_CACHE_CFLAGS LCB_CACHE_CXXFLAGS
 if [ "$CLEAN" -eq 1 ] && [ -d "$BUILD_DIR" ]; then
   run rm -rf "$BUILD_DIR"
 fi

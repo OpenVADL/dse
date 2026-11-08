@@ -109,6 +109,13 @@ fi
 mkdir -p "$BUILD_DIR"
 cd "$BUILD_DIR"
 use_compiler_cache "$CACHE"
+configure_compiler_cache_paths "$CACHE" "$GEN_DIR"
+if [ "$CACHE" != none ]; then
+  CFLAGS="$(compiler_cache_flags "${CFLAGS:-}")"
+  CXXFLAGS="$(compiler_cache_flags "${CXXFLAGS:-}")"
+  OBJCFLAGS="$(compiler_cache_flags "${OBJCFLAGS:-}")"
+  export CFLAGS CXXFLAGS OBJCFLAGS
+fi
 FDT_ARGS=()
 if pkg-config --exists libfdt; then
   FDT_ARGS+=("--extra-cflags=$(pkg-config --cflags libfdt)")
