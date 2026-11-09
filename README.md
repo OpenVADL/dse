@@ -250,7 +250,7 @@ Reuse the ELF and run the ISS:
 
 The script checks dependencies and input files only for enabled steps.
 The runner needs Bash and jq. Compilation also needs Make and the generated
-`clang`, `llvm-mc`, and `ld.lld`.
+`clang`, `llvm-mc`, `ld.lld`, and `llvm-objdump`.
 It uses the successful LCB build record to find custom compiler paths
 and target names when available.
 ISS runs need `libinsn.so` on Linux or `libinsn.dylib` on macOS in the ISS build's
@@ -261,6 +261,8 @@ CRC computation, and checksum output. They don't measure hardware cycles.
 Totals can vary slightly during HTIF shutdown.
 
 CRC32 assembly and executables go in `gen/VARIANT/crc32/`.
+Compilation also writes `crc32.dump`, the linked executable's disassembly with
+instruction addresses and bytes. The runner prints its path.
 
 The runner records the custom instructions selected in the kernel assembly.
 The current generated compiler doesn't automatically select `crc1` for the

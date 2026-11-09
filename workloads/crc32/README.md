@@ -15,6 +15,7 @@ The runner checks the full result against the known checksum `65842ca9`
 (`11433` modulo 32,768, as checked by Embench).
 
 Outputs go in `gen/VARIANT/crc32/` and `results/VARIANT/`.
+The generated `llvm-objdump` writes the linked disassembly to `gen/VARIANT/crc32/crc32.dump`.
 The runner prints the full-program instruction count from QEMU's `insn` plugin
 and records it in `crc32-iss.csv` and `run.json`. The count includes startup,
 input setup, and checksum output. It doesn't measure hardware cycles.

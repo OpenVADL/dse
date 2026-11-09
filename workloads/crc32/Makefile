@@ -21,3 +21,5 @@ all:
 	"$(LCB_BIN)/ld.lld" -static -T src/link.ld "$(OUT)/start.o" "$(OUT)/crc_32.o" \
 	  "$(OUT)/random.o" "$(OUT)/main.o" -o "$(OUT)/crc32.tmp.elf"
 	mv "$(OUT)/crc32.tmp.elf" "$(OUT)/crc32.elf"
+	"$(LCB_BIN)/llvm-objdump" --arch-name="$(TARGET)" -d "$(OUT)/crc32.elf" > "$(OUT)/crc32.dump.tmp"
+	mv "$(OUT)/crc32.dump.tmp" "$(OUT)/crc32.dump"

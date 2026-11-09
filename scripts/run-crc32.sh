@@ -192,11 +192,12 @@ if [ "$SKIP_COMPILE" -eq 0 ]; then
   LOG="$RESULT_DIR/crc32-compile.log"
   : > "$LOG"
   command -v make >/dev/null || die 'make is missing from PATH'
-  for tool in clang llvm-mc ld.lld; do
+  for tool in clang llvm-mc ld.lld llvm-objdump; do
     require_executable "$LCB_BIN/$tool"
     record_version "$tool" "$LCB_BIN/$tool"
   done
   run make --no-print-directory -C "$WORKLOAD" "LCB_BIN=$LCB_BIN" "TARGET=$TARGET" "OUT=$OUT"
+  report "Disassembly: $OUT/crc32.dump"
   CUSTOM_INSTRUCTIONS="$(sed -nE 's/^[[:space:]]*(crc[012])[[:space:]].*/\1/p' "$OUT/crc_32.s" | sort -u | jq -Rsc 'split("\n") | map(select(length > 0))')"
   report "Selected CRC instructions: $(printf '%s' "$CUSTOM_INSTRUCTIONS" | jq -r 'if length == 0 then "none" else join(", ") end')"
   COMPILE_RESULT=passed
