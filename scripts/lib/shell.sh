@@ -7,6 +7,14 @@
 # ---------------------------------------------------------------------------
 # Executable paths and host CPU count
 # ---------------------------------------------------------------------------
+qemu_insn_plugin() {
+  local path
+  for path in "$1/tests/tcg/plugins/libinsn.so" "$1/tests/tcg/plugins/libinsn.dylib"; do
+    if [ -f "$path" ]; then printf '%s\n' "$path"; return 0; fi
+  done
+  return 1
+}
+
 absolute_command() {
   local path
   path="$(command -v "$1")" || return 1

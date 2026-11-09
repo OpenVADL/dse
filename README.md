@@ -56,7 +56,7 @@ register:
 The experiment compares five ISA variants: RV32I, RV32I+crc0, RV32I+crc1,
 RV32I+crc2, and RV32I+crc0/1/2.
 
-Compare each variant's checksum with an independent C reference.
+Compare each variant's checksum with the known result `65842ca9`.
 
 TODO: Describe the microarchitectures and hardware comparisons.
 
@@ -75,7 +75,8 @@ results.
 TODO: Remove the layout, just used as implementation reference
 ```text
 specs/                      # Upstream RISC-V snapshot and custom specifications
-workloads/crc32/            # Application, fixed input, and bare-metal runtime
+workloads/crc32/            # Workload Makefile, documentation, and license
+  src/                     # CRC32 kernel, input generator, and bare-metal runtime
 scripts/
   check-deps.sh             # Common and backend-specific dependency checks
   lib/                      # Shared Bash probes, shell helpers, and ISS results
@@ -151,8 +152,6 @@ Add the directory containing the built `openroad` binary to `PATH`.
 
 ## Script usage
 
-TODO: Implement the script interface shown below.
-
 Run the entry scripts from any directory. The build scripts and dependency
 checker use the `dse` project root as their working directory. Relative paths,
 including `--output-dir`, the RTL specification, and `PYTHON`, resolve from that root.
@@ -174,6 +173,9 @@ Build the compiler toolchain and functional ISS for the selected variant:
 
 - `build-lcb.sh` generates and builds the compiler, assembler, disassembler, and linker.
 - `build-iss.sh` generates and builds the functional ISS.
+
+The ISS build enables QEMU plugins and builds the `insn` instruction counter
+in `gen/VARIANT/iss/build/tests/tcg/plugins/`.
 
 These scripts produce artifact executables under `gen/VARIANT/lcb/` and
 `gen/VARIANT/iss/`. CRC32 compilation and execution are separate steps.
@@ -211,36 +213,58 @@ Check dependencies with `./scripts/check-deps.sh rtl`.
 
 ### Run CRC32
 
-By default, `run-crc32.sh` performs these workload steps with the artifact
-executables built for the selected variant:
+`run-crc32.sh` uses the artifact executables built for the selected variant:
 
 1. Compile, assemble, and link the CRC32 workload with the generated toolchain.
-2. Run the executable on the generated ISS and check its checksum against the C reference.
-3. TODO: Define the RTL steps.
+2. Run the executable on the generated ISS and compare the full 32-bit checksum with the known result.
+3. Print and record the executed instruction count from QEMU's `insn` plugin.
+
+The standalone [workload](workloads/crc32/README.md) uses a small Makefile and
+bare-metal runtime. It fills an array of 1,024 words before the CRC loop.
+The expected result is `65842ca9` for all five variants.
+RTL workload execution is unavailable and is always recorded as skipped.
 
 Compile and test the RV32I workload on the ISS:
 
 ```sh
-./scripts/run-crc32.sh --variant rv32i --skip-rtl
+./scripts/run-crc32.sh --variant rv32i
 ```
 
 | Option | Effect |
 |---|---|
 | `--skip-compile` | Reuse an existing executable for the selected variant |
 | `--skip-iss` | Skip ISS execution and its checksum check |
-| `--skip-rtl` | Skip the RTL steps |
+| `--skip-rtl` | Accepted for compatibility. RTL execution is always skipped |
+| `--timeout SECONDS` | Limit ISS execution time. Default: 30 seconds, positive integer |
+| `--output-dir DIR` | Set the artifact root. Default: `gen/VARIANT` |
+| `--lcb-bin DIR` | Select a directory with generated LLVM executables |
+| `--target NAME` | Override the generated LLVM target name |
+| `--iss FILE` | Select a generated QEMU executable |
+| `--insn-plugin FILE` | Override the instruction-count plugin path |
 
-E.g. only run the ISS without recompiling:
+Reuse the ELF and run the ISS:
 
 ```sh
-./scripts/run-crc32.sh --variant rv32i --skip-compile --skip-rtl
+./scripts/run-crc32.sh --variant rv32i --skip-compile
 ```
 
 The script checks dependencies and input files only for enabled steps.
+The runner needs Bash and jq. Compilation also needs Make and the generated
+`clang`, `llvm-mc`, and `ld.lld`.
+It uses the successful LCB build record to find custom compiler paths
+and target names when available.
+ISS runs need `libinsn.so` on Linux or `libinsn.dylib` on macOS in the ISS build's
+`tests/tcg/plugins/` directory. Rebuild the ISS if the plugin is missing.
+
+Instruction counts cover the full program, including startup, input generation,
+CRC computation, and checksum output. They don't measure hardware cycles.
+Totals can vary slightly during HTIF shutdown.
 
 CRC32 assembly and executables go in `gen/VARIANT/crc32/`.
 
-TODO: Define the RTL run options and required artifacts.
+The runner records the custom instructions selected in the kernel assembly.
+The current generated compiler doesn't automatically select `crc1` for the
+table load. The [workload notes](workloads/crc32/README.md) describe this limit.
 
 ## Results
 
@@ -254,7 +278,8 @@ The scripts write logs and results to `results/VARIANT/`:
 | `build-times.csv` | Generation and build times, build options, and compiler-cache settings |
 | `crc32-compile.log` | Workload compiler, assembler, and linker output |
 | `crc32-iss.log` | ISS simulation output |
-| `crc32-iss.csv` | Expected checksum, actual checksum, and pass or fail result |
+| `crc32-insn.log` | QEMU instruction counts per CPU and in total |
+| `crc32-iss.csv` | Expected checksum, actual checksum, pass or fail result, and full-program instruction count |
 | `run.json` | Commands, tool versions, specification and input hashes, host information, and skipped steps |
 
 Build timings report source generation and compilation separately. The ISS

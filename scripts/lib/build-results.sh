@@ -72,7 +72,9 @@ write_build_results() {
   fi
   case "$ARTIFACT" in
     iss) versions="$(printf '%s\n' "$versions" | jq --arg version "$binary_version" --argjson status "$status" \
-      '. + {qemu: (if $status == 0 then $version else null end)}')" || return 1 ;;
+      '. + {qemu: (if $status == 0 then $version else null end)}')" || return 1
+      details="$(jq -n --arg plugin "${INSN_PLUGIN:-}" \
+        '{insn_plugin: (if $plugin == "" then null else $plugin end)}')" || return 1 ;;
     lcb) versions="$(printf '%s\n' "$versions" | jq --arg version "$binary_version" \
       --arg cmake "$(tool_version cmake --version)" --argjson status "$status" \
       '. + {cmake: $cmake, clang: (if $status == 0 then $version else null end)}')" || return 1 ;;

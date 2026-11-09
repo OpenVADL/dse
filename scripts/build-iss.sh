@@ -36,6 +36,7 @@ Generate and build a QEMU ISS with OpenVADL from PATH.
   -h, --help       Show this help.
 
 Sources and binaries: gen/NAME/iss/ (binary in build/).
+Builds the insn instruction-count plugin in build/tests/tcg/plugins/.
 Logs and timings: results/NAME/.
 The script manages the project's Python environment and its packages.
 The script tries python3, then python, and requires Python 3.11 or newer.
@@ -70,6 +71,7 @@ BUILD_DIR="$GEN_DIR/build"
 RESULT_DIR="$ROOT/results/$VARIANT"
 TARGET="$(printf '%s' "$ISA" | tr '[:upper:]' '[:lower:]')"
 BINARY="$BUILD_DIR/qemu-system-$TARGET"
+INSN_PLUGIN=''
 INIT_ARGS=()
 if [ ! -f "$GEN_DIR/configure" ] || [ ! -f "$GEN_DIR/Makefile" ] ||
    [ ! -f "$GEN_DIR/VERSION" ] || [ ! -f "$GEN_DIR/meson.build" ]; then
@@ -123,9 +125,10 @@ if pkg-config --exists libfdt; then
 fi
 run "$GEN_DIR/configure" "--target-list=$TARGET-softmmu" "--python=$PYTHON" \
   "--cc=$CC" "--cxx=$CXX" "--objcc=$OBJC" \
-  --enable-fdt=system --disable-docs ${FDT_ARGS[@]+"${FDT_ARGS[@]}"}
-run make -j "$JOBS"
+  --enable-fdt=system --enable-plugins --disable-docs ${FDT_ARGS[@]+"${FDT_ARGS[@]}"}
+run make -j "$JOBS" all test-plugins
 [ -x "$BINARY" ] || die "QEMU build did not produce '$BINARY'"
+INSN_PLUGIN="$(qemu_insn_plugin "$BUILD_DIR")" || die "QEMU build did not produce the insn plugin in '$BUILD_DIR/tests/tcg/plugins'"
 BUILD_SECONDS="$(elapsed "$start" "$(now)")"
 STAGE=complete
 report_compiler_cache_stats "$CACHE"
@@ -136,3 +139,4 @@ report_compiler_cache_stats "$CACHE"
 report "Generation: $GENERATION_SECONDS s"
 report "QEMU build: $BUILD_SECONDS s"
 report "Binary: $BINARY"
+report "Instruction-count plugin: $INSN_PLUGIN"
