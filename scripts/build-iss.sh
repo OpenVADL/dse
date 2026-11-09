@@ -18,7 +18,6 @@ VARIANT=""
 JOBS=""
 CLEAN=0
 CACHE=auto
-PYTHON="${PYTHON:-python3}"
 
 # ---------------------------------------------------------------------------
 # Help and argument parsing
@@ -39,7 +38,8 @@ Generate and build a QEMU ISS with OpenVADL from PATH.
 Sources and binaries: gen/NAME/iss/ (binary in build/).
 Logs and timings: results/NAME/.
 The script manages the project's Python environment and its packages.
-Set PYTHON to select the base Python executable. Default: python3.
+The script tries python3, then python, and requires Python 3.11 or newer.
+Set PYTHON to select the base Python executable without fallback.
 Relative paths start at the dse project root.
 On the first run, OpenVADL downloads QEMU and can request source confirmation.
 EOF

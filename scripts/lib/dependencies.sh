@@ -99,8 +99,12 @@ probe_libfdt() {
 # Common and backend-specific requirements
 # ---------------------------------------------------------------------------
 check_common_dependencies() {
-  local tool
-  check_dependency 'Python >= 3.11' probe_tool "$PYTHON" 3.11 || :
+  local tool python_available=0
+  if PYTHON="$(select_python)"; then
+    python_available=1
+  else
+    MISSING_DEPENDENCIES+=('Python >= 3.11')
+  fi
   for tool in openvadl make git; do check_tool "$tool"; done
   check_tool jq 1.6
   check_tool ninja 1.8
@@ -111,7 +115,9 @@ check_common_dependencies() {
   fi
   check_dependency 'C++17 compiler and linker' compile_probe cxx \
     $'#include <optional>\nint main() { return std::optional<int>(0).value(); }' || :
-  check_dependency 'Python virtual environment support' probe_virtual_environment || :
+  if [ "$python_available" -eq 1 ]; then
+    check_dependency 'Python virtual environment support' probe_virtual_environment || :
+  fi
   if command -v sha256sum >/dev/null; then
     check_dependency sha256sum sha256sum --version || :
   else
@@ -145,16 +151,45 @@ check_lcb_dependencies() {
   for tool in curl tar gzip unzip perl; do check_dependency "$tool" command -v "$tool" || :; done
 }
 
+probe_jdk() {
+  local output
+  output="$(java -version 2>&1)" && version_at_least "$output" 17 || return 1
+  output="$(javac -version 2>&1)" && version_at_least "$output" 17
+}
+
+check_rtl_dependencies() {
+  local path
+  check_dependency OpenVADL probe_tool "${VADL_CMD:-openvadl}" || :
+  check_tool jq 1.6
+  check_dependency 'JDK >= 17' probe_jdk || :
+  check_dependency sbt command -v sbt || :
+  check_dependency Yosys yosys -V || :
+  check_dependency OpenROAD openroad -version || :
+  if command -v sha256sum >/dev/null; then
+    check_dependency sha256sum sha256sum --version || :
+  else
+    check_dependency 'shasum (SHA-256)' shasum -a 256 /dev/null || :
+  fi
+  for path in "$ROOT"/hardware/pdk/sky130/sky130_fd_sc_hd.lef \
+    "$ROOT"/hardware/pdk/sky130/sky130_fd_sc_hd__nom.tlef \
+    "$ROOT"/hardware/pdk/sky130/sky130_fd_sc_hd__tt_025C_1v80.lib \
+    "$ROOT"/hardware/yosys/bench_core_asic_sky130.ys \
+    "$ROOT"/hardware/openroad/bench_core_asic_sky130.tcl; do
+    check_dependency "readable file: $path" test -r "$path" || :
+  done
+}
+
 # ---------------------------------------------------------------------------
 # Probe lifecycle and combined report
 # ---------------------------------------------------------------------------
 check_dependencies() (
   local backend="$1" cache="$2"
-  local PYTHON="${PYTHON:-python3}" DEPENDENCY_DIR C_COMPILER_AVAILABLE
+  local PYTHON="${PYTHON:-}" DEPENDENCY_DIR C_COMPILER_AVAILABLE
   local MISSING_DEPENDENCIES=()
   case "$backend" in
     iss) printf 'Checking ISS dependencies...\n' ;;
     lcb) printf 'Checking LCB dependencies...\n' ;;
+    rtl) printf 'Checking RTL dependencies...\n' ;;
   esac
   DEPENDENCY_DIR="$(mktemp -d "${TMPDIR:-/tmp}/dse-deps.XXXXXX")" || return 1
   trap 'rm -rf "$DEPENDENCY_DIR"' EXIT
@@ -163,6 +198,7 @@ check_dependencies() (
   case "$backend" in
     iss) check_iss_dependencies ;;
     lcb) check_lcb_dependencies "$cache" ;;
+    rtl) check_rtl_dependencies ;;
   esac
   if [ "$cache" != none ]; then check_dependency "$cache" command -v "$cache" || :; fi
   if [ "${#MISSING_DEPENDENCIES[@]}" -gt 0 ]; then

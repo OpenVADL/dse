@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Shared validation and setup for ISS and LLVM builds. The caller sets ROOT.
+# Shared validation for backend builds and setup for ISS and LLVM. The caller sets ROOT.
 
 source "$ROOT/scripts/lib/shell.sh"
 source "$ROOT/scripts/lib/compiler-cache.sh"
@@ -27,16 +27,16 @@ select_variant() {
     crc012) ISA=RV32ICustomCrc ;;
     *) die "pass --variant rv32i, crc0, crc1, crc2, or crc012" ;;
   esac
-  SPEC="$ROOT/specs/rv32iCustom.vadl"
-  [ -f "$SPEC" ] || die "specification '$SPEC' does not exist"
   MODEL_ARGS=(--model "TargetIsa=$ISA")
 }
 
 prepare_backend_build() {
   select_variant
+  SPEC="$ROOT/specs/rv32iCustom.vadl"
+  [ -f "$SPEC" ] || die "specification '$SPEC' does not exist"
   [ -z "$JOBS" ] || validate_positive_integer --jobs "$JOBS"
   [ -z "${LINK_JOBS:-}" ] || validate_positive_integer --link-jobs "$LINK_JOBS"
-  PYTHON="$(absolute_command "$PYTHON")" || die "Python not found in PATH"
+  PYTHON="$(select_python)" || exit 1
   CACHE="$(select_compiler_cache "$CACHE")" || exit $?
   PYTHON="$PYTHON" bash "$ROOT/scripts/check-deps.sh" "$1" --cache "$CACHE" || exit 1
   use_project_python "$ROOT" || exit 1

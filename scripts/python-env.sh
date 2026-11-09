@@ -6,6 +6,8 @@
 # Clear inherited Python module paths so they don't override the environment.
 # Supports Bash 3.2 on macOS and Bash on Linux.
 
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/shell.sh"
+
 # ---------------------------------------------------------------------------
 # Environment setup and interpreter selection
 # ---------------------------------------------------------------------------
@@ -27,7 +29,8 @@ prepare_project_python() (
   python="$directory/bin/python"
   log="$directory/setup.log"
   unset PYTHONPATH PYTHONHOME PIP_TARGET PIP_PREFIX
-  base_python="$("${PYTHON:-python3}" -c 'import sys; print(getattr(sys, "_base_executable", sys.executable))')" || {
+  base_python="$(select_python)" || return 1
+  base_python="$("$base_python" -c 'import sys; print(getattr(sys, "_base_executable", sys.executable))')" || {
     printf 'error: base Python is unavailable\n' >&2
     return 1
   }

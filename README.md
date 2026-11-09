@@ -66,11 +66,10 @@ TODO: Describe the microarchitectures and hardware comparisons.
 |---|---|
 | Compiler, assembler, disassembler, and linker | OpenVADL LLVM backend generation, followed by an LLVM build |
 | Functional instruction set simulator (ISS) | OpenVADL QEMU frontend generation, followed by a QEMU build |
+| RTL | OpenVADL RTL generation, sbt SystemVerilog emission, Yosys synthesis, and OpenROAD placement and timing analysis |
 
 We use the functional ISS to test instruction behavior and check the workload's
 results.
-
-TODO: List the RTL and hardware artifacts and their build flows.
 
 ## Project layout
 TODO: Remove the layout, just used as implementation reference
@@ -82,12 +81,12 @@ scripts/
   lib/                      # Shared Bash probes, shell helpers, and ISS results
   build-lcb.sh              # Generate and build the LLVM toolchain
   build-iss.sh              # Generate and build the QEMU ISS
+  build-rtl.sh              # Generate RTL and run the Sky130 hardware flow
   run-crc32.sh              # Build and test the workload
+hardware/                   # Yosys/OpenROAD templates and Sky130 PDK inputs
 gen/                        # Generated sources and binaries
 results/                    # Logs, measurements, and run metadata
 ```
-
-TODO: Add the RTL and hardware scripts to the layout.
 
 ## Requirements
 
@@ -99,7 +98,7 @@ The HDL flow requires a JDK for sbt.
 |---|---|
 | Common | Bash 3.2+, Python 3.11+, jq 1.6+, Git, Make, a C/C++ toolchain with C++17 support, CMake 3.20+, Ninja, curl, tar, gzip, unzip, and CA certificates |
 | QEMU ISS | pkg-config, GLib 2.66+, Pixman 0.21.8+, libfdt 1.5.1+, and zlib |
-| HDL/ASIC | JDK 17 or 21 LTS, sbt, Yosys with ABC, OpenROAD, and Sky130 Liberty/LEF files (included in `build-rtl/pdk/`) |
+| HDL/ASIC | JDK 17 or newer (17 or 21 LTS recommended), sbt, Yosys with ABC, OpenROAD, and Sky130 Liberty/LEF files (included in `hardware/pdk/sky130/`) |
 | Optional compiler cache | ccache (preferred) or sccache |
 
 ### Linux
@@ -160,7 +159,7 @@ including `--output-dir`, the RTL specification, and `PYTHON`, resolve from that
 Absolute paths work as given. The Python environment setup script finds the
 project root automatically when its optional `ROOT` argument is omitted.
 
-Both artifact build scripts accept `--variant NAME`:
+All artifact build scripts require `--variant NAME`:
 `rv32i`, `crc0`, `crc1`, `crc2`, or `crc012`. The `crc012` variant includes all
 three custom instructions.
 
@@ -181,10 +180,10 @@ These scripts produce artifact executables under `gen/VARIANT/lcb/` and
 
 | Option | Scripts | Purpose |
 |---|---|---|
-| `--jobs N` | Both build scripts | Limit parallel compilation |
+| `--jobs N` | ISS and LCB | Limit parallel compilation |
 | `--link-jobs N` | `build-lcb.sh` | Limit parallel LLVM linking |
 | `--cache auto`, `--cache ccache`, `--cache sccache`, or `--cache none` | All build scripts | Select the compiler cache, with `auto` as the default |
-| `--clean` | Both build scripts | Remove compiled build outputs before rebuilding |
+| `--clean` | ISS and LCB | Remove compiled build outputs before rebuilding |
 
 The build scripts download the LLVM and QEMU sources on the first build. Later
 builds reuse existing sources and build outputs. `--clean` leaves compiler caches
@@ -194,7 +193,21 @@ All build scripts use `ccache` when it is available, otherwise `sccache` when it
 is available, and no compiler cache otherwise. Use `--cache` to override this
 selection. `--cache none` disables compiler caching.
 
-TODO: Add the RTL artifact build scripts and their options.
+### Build RTL
+
+```sh
+./scripts/build-rtl.sh --variant crc012
+./scripts/build-rtl.sh --variant crc012 --microarchitecture 3stage
+```
+
+The script selects the specification and top module for the bundled
+[OpenVADL pipelines](https://github.com/OpenVADL/openvadl/tree/59211d05e6752e4ff07a3ede960b7d298f2082f4/sys/risc-v/mia).
+Defaults: `5stage` and a 5 ns clock period.
+Use `--clock-period NS` to change the period and `--help` for specification and module overrides.
+Set `VADL_CMD` to select another OpenVADL executable.
+
+Sources and outputs go in `gen/VARIANT/rtl/MICROARCHITECTURE/`, with SystemVerilog and netlists in its `build/` subdirectory.
+Check dependencies with `./scripts/check-deps.sh rtl`.
 
 ### Run CRC32
 
@@ -237,6 +250,7 @@ The scripts write logs and results to `results/VARIANT/`:
 |---|---|
 | `build-lcb.log` | LLVM generation and build output |
 | `build-iss.log` | ISS generation and build output |
+| `rtl/MICROARCHITECTURE/build-rtl.log` | RTL generation, SystemVerilog emission, synthesis, placement, and timing output |
 | `build-times.csv` | Generation and build times, build options, and compiler-cache settings |
 | `crc32-compile.log` | Workload compiler, assembler, and linker output |
 | `crc32-iss.log` | ISS simulation output |
@@ -246,4 +260,5 @@ The scripts write logs and results to `results/VARIANT/`:
 Build timings report source generation and compilation separately. The ISS
 results report functional correctness. Skipped steps are marked as skipped.
 
-TODO: Describe RTL cycle measurements, chip area, and frequency estimates.
+RTL logs, `run.json`, and `build-times.csv` go in `results/VARIANT/rtl/MICROARCHITECTURE/`.
+Hardware timing reports remain in the logs. RTL workload cycle measurements remain unimplemented.

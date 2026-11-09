@@ -1,0 +1,41 @@
+// SPDX-FileCopyrightText : © 2024 TU Wien <vadl@tuwien.ac.at>
+// SPDX-License-Identifier: Apache-2.0
+
+import "../rv32iCustom"::{TargetIsa, RV32ICustomCrcBase, RV32ICustomCrc0, RV32ICustomCrc1, RV32ICustomCrc2, RV32ICustomCrc}
+
+micro architecture FiveStage implements $TargetIsa() = {
+  stage FETCH -> FetchResult = {
+    FETCH := fetchNext
+  }
+
+  stage DECODE -> Instruction = {
+    let instr = decode(FETCH) in {
+      instr.address(@X)
+      instr.read(@X)
+      instr.read(@PC)
+      DECODE := instr
+    }
+  }
+
+  stage EXECUTE -> Instruction = {
+    let instr = DECODE in {
+      instr.compute
+      instr.verify
+      instr.write(@PC)
+      EXECUTE := instr
+    }
+  }
+
+  stage MEMORY -> Instruction = {
+    let instr = EXECUTE in {
+      instr.write(@MEM)
+      instr.read(@MEM)
+      MEMORY := instr
+    }
+  }
+
+  stage WRITE_BACK = {
+    let instr = MEMORY in
+      instr.write(@X)
+  }
+}

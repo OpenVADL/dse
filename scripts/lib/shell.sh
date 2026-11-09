@@ -16,6 +16,24 @@ absolute_command() {
   esac
 }
 
+select_python() {
+  local candidate
+  local candidates=("${PYTHON:-python3}")
+  if [ -z "${PYTHON:-}" ]; then candidates+=(python); fi
+  for candidate in "${candidates[@]}"; do
+    if "$candidate" -c 'import sys; sys.exit(sys.version_info < (3, 11))' >/dev/null 2>&1; then
+      absolute_command "$candidate"
+      return $?
+    fi
+  done
+  if [ -n "${PYTHON:-}" ]; then
+    printf 'error: PYTHON=%s requires a working Python >= 3.11 interpreter.\n' "$PYTHON" >&2
+  else
+    printf 'error: Python >= 3.11 not found in PATH (tried python3 and python). Set PYTHON to select an interpreter.\n' >&2
+  fi
+  return 1
+}
+
 cpu_count() {
   local count
   count="$(getconf _NPROCESSORS_ONLN 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || printf '1')"

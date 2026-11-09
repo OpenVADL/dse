@@ -35,9 +35,9 @@ tool_version() {
   fi
 }
 
-specification_hashes() {
+file_hashes() {
   local path hash
-  for path in "$ROOT"/specs/*.vadl; do
+  for path in "$@"; do
     [ -f "$path" ] || continue
     # Hash stdin so filenames don't change the checksum output format.
     if command -v sha256sum >/dev/null; then
@@ -50,23 +50,48 @@ specification_hashes() {
   done | jq -s 'from_entries'
 }
 
+specification_hashes() {
+  file_hashes "$ROOT"/specs/*.vadl "$ROOT"/specs/mia/*.vadl "${SPEC:-}"
+}
+
 # ---------------------------------------------------------------------------
 # Atomic run.json update and build-times.csv append
 # ---------------------------------------------------------------------------
 write_build_results() {
-  local status="$1" total hashes binary_version='' record metadata temporary csv versions
+  local status="$1" total hashes binary_version='' record metadata temporary csv versions details='{}' inputs='{}'
+  local vadl_command=openvadl
   total="$(elapsed "$STARTED" "$(now)")" || return 1
   hashes="$(specification_hashes)" || return 1
-  if [ "$status" -eq 0 ]; then binary_version="$(tool_version "$BINARY" --version)"; fi
-  versions="$(jq -n --arg openvadl "$(tool_version openvadl --version)" \
-    --arg make "$(tool_version make --version)" --arg python "$(tool_version "$PYTHON" --version)" \
-    '{openvadl: $openvadl, make: $make, python: $python}')" || return 1
+  if [ "$status" -eq 0 ] && [ -n "$BINARY" ]; then binary_version="$(tool_version "$BINARY" --version)"; fi
+  if [ "$ARTIFACT" = rtl ]; then vadl_command="$VADL_CMD"; fi
+  versions="$(jq -n --arg openvadl "$(tool_version "$vadl_command" --version)" \
+    '{openvadl: $openvadl}')" || return 1
+  if [ "$ARTIFACT" != rtl ]; then
+    versions="$(printf '%s\n' "$versions" | jq --arg make "$(tool_version make --version)" \
+      --arg python "$(tool_version "$PYTHON" --version)" '. + {make: $make, python: $python}')" || return 1
+  fi
   case "$ARTIFACT" in
     iss) versions="$(printf '%s\n' "$versions" | jq --arg version "$binary_version" --argjson status "$status" \
       '. + {qemu: (if $status == 0 then $version else null end)}')" || return 1 ;;
     lcb) versions="$(printf '%s\n' "$versions" | jq --arg version "$binary_version" \
       --arg cmake "$(tool_version cmake --version)" --argjson status "$status" \
       '. + {cmake: $cmake, clang: (if $status == 0 then $version else null end)}')" || return 1 ;;
+    rtl)
+      versions="$(printf '%s\n' "$versions" | jq --arg java "$(tool_version java -version)" \
+        --arg sbt "$(tool_version sbt --script-version)" --arg yosys "$(tool_version yosys -V)" \
+        --arg openroad "$(tool_version openroad -version)" \
+        '. + {java: $java, sbt: $sbt, yosys: $yosys, openroad: $openroad}')" || return 1
+      inputs="$(file_hashes "$ROOT"/hardware/pdk/sky130/* \
+        "$ROOT/hardware/yosys/bench_core_asic_sky130.ys" \
+        "$ROOT/hardware/openroad/bench_core_asic_sky130.tcl")" || return 1
+      details="$(jq -n --arg spec "$SPEC" --arg top "$TOP_MODULE" --arg mia "$MICROARCHITECTURE" \
+        --arg clock "$CLOCK_PERIOD" --arg sv "$SYSTEM_VERILOG" --arg netlist "$NETLIST" \
+        --argjson emission "$EMISSION_SECONDS" --argjson synthesis "$SYNTHESIS_SECONDS" \
+        --argjson placement "$PLACEMENT_SECONDS" '{
+          binary: null, specification: $spec, top_module: $top, microarchitecture: $mia,
+          clock_period_ns: ($clock | tonumber), system_verilog: $sv, netlist: $netlist,
+          stage_seconds: {emission: $emission, synthesis: $synthesis, placement: $placement}
+        }')" || return 1 ;;
   esac
   record="$(jq -n \
     --arg assertions "${LLVM_ASSERTIONS:-}" --arg dump "${LLVM_DUMP:-}" \
@@ -77,6 +102,7 @@ write_build_results() {
     --argjson jobs "$JOBS" --argjson clean "$CLEAN" --argjson started "$STARTED" \
     --argjson generation "$GENERATION_SECONDS" --argjson build "$BUILD_SECONDS" \
     --argjson total "$total" --argjson status "$status" --argjson hashes "$hashes" \
+    --argjson inputs "$inputs" --argjson details "$details" \
     --arg system "$(uname -srm)" --arg machine "$(uname -m)" \
     --slurpfile commands "$COMMANDS" '{
       artifact: $artifact, variant: $variant, isa: $isa, target: $target,
@@ -86,12 +112,12 @@ write_build_results() {
       exit_code: $status, stage: $stage, binary: $binary,
       host: {system: $system, machine: $machine},
       versions: $versions,
-      specification_sha256: $hashes, input_sha256: {},
+      specification_sha256: $hashes, input_sha256: $inputs,
       skipped_steps: ["compile-crc32", "run-iss", "run-rtl"], commands: $commands
     } + (if $artifact == "lcb" then {
       llvm_assertions: ($assertions == "On"), llvm_dump: ($dump == "On"),
       llvm_compatibility_workaround: ($workaround == 1)
-    } else {} end)')" || return 1
+    } else {} end) + $details')" || return 1
 
   metadata="$RESULT_DIR/run.json"
   temporary="$(mktemp "$RESULT_DIR/run.json.XXXXXX")" || return 1
@@ -129,6 +155,14 @@ finish_build() {
     generation) GENERATION_SECONDS="$(elapsed "$start" "$(now)")" ;;
     build) BUILD_SECONDS="$(elapsed "$start" "$(now)")" ;;
   esac
+  if [ "$ARTIFACT" = rtl ]; then
+    case "$STAGE" in
+      emission) EMISSION_SECONDS="$(elapsed "$start" "$(now)")" ;;
+      synthesis) SYNTHESIS_SECONDS="$(elapsed "$start" "$(now)")" ;;
+      placement) PLACEMENT_SECONDS="$(elapsed "$start" "$(now)")" ;;
+    esac
+    if [ -n "$BUILD_STARTED" ]; then BUILD_SECONDS="$(elapsed "$BUILD_STARTED" "$(now)")"; fi
+  fi
   if write_build_results "$status"; then
     metadata_status=0
   else
@@ -136,13 +170,16 @@ finish_build() {
     printf 'error: failed to write %s results in %s\n' "$(printf '%s' "$ARTIFACT" | tr '[:lower:]' '[:upper:]')" "$RESULT_DIR" >&2
   fi
   rm -f "$COMMANDS"
+  if [ "$ARTIFACT" = rtl ] && [ -n "${RTL_GENERATION_DIR:-}" ]; then
+    rm -rf "$RTL_GENERATION_DIR"
+  fi
   [ "$status" -ne 0 ] || status=$metadata_status
   exit "$status"
 }
 
 start_build_recording() {
   ARTIFACT="$1"
-  RESULT_DIR="$ROOT/results/$VARIANT"
+  RESULT_DIR="${2:-$ROOT/results/$VARIANT}"
   mkdir -p "$RESULT_DIR"
   LOG="$RESULT_DIR/build-$ARTIFACT.log"
   : > "$LOG"

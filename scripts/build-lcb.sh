@@ -22,7 +22,6 @@ BUILD_TYPE=MinSizeRel
 UPSTREAM_TARGETS=RISCV
 CACHE=auto
 CLEAN=0
-PYTHON="${PYTHON:-python3}"
 LLVM_ASSERTIONS=On
 LLVM_DUMP=On
 LLVM_COMPATIBILITY_WORKAROUND=0
@@ -51,6 +50,8 @@ Sources and binaries: gen/NAME/lcb/ (or DIR/lcb/ with --output-dir).
 Logs and results: results/NAME/.
 Relative paths start at the dse project root.
 The script manages the project's Python environment and its packages.
+The script tries python3, then python, and requires Python 3.11 or newer.
+Set PYTHON to select the base Python executable without fallback.
 The upstream RISCV target is built alongside the generated target.
 EOF
 }
