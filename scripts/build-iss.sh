@@ -2,7 +2,7 @@
 #
 # Generate a QEMU ISS with OpenVADL and compile it for one ISA variant.
 # Reuse sources in gen/VARIANT/iss and write logs and results to results/VARIANT.
-# --clean removes only compiled outputs. Requires OpenVADL in PATH.
+# --clean removes only compiled outputs.
 # Run from any directory. Relative paths resolve from the dse project root.
 # Supports Bash 3.2 on macOS and Bash on Linux.
 
@@ -26,7 +26,7 @@ usage() {
   cat <<EOF
 Usage: $(basename "$0") --variant NAME [--jobs N] [--cache TOOL] [--clean]
 
-Generate and build a QEMU ISS with OpenVADL from PATH.
+Generate and build a QEMU ISS with OpenVADL.
 
   --variant NAME   Required: rv32i, crc0, crc1, crc2, or crc012.
   -j, --jobs N     Parallel build jobs. Default: available CPU count.
@@ -41,6 +41,7 @@ Logs and timings: results/NAME/.
 The script manages the project's Python environment and its packages.
 The script tries python3, then python, and requires Python 3.11 or newer.
 Set PYTHON to select the base Python executable without fallback.
+Set OPENVADL to select the OpenVADL executable. Default: openvadl.
 Relative paths start at the dse project root.
 On the first run, OpenVADL downloads QEMU and can request source confirmation.
 EOF
@@ -94,7 +95,7 @@ report "Step 1: Generating QEMU sources"
 STAGE=generation
 start="$(now)"
 # Bash 3.2 treats an empty array as unset under nounset.
-run openvadl iss "${MODEL_ARGS[@]}" --output "$OUTPUT_DIR" \
+run "$OPENVADL" iss "${MODEL_ARGS[@]}" --output "$OUTPUT_DIR" \
   ${INIT_ARGS[@]+"${INIT_ARGS[@]}"} "$SPEC"
 GENERATION_SECONDS="$(elapsed "$start" "$(now)")"
 [ -f "$GEN_DIR/configure" ] || die "QEMU sources are missing from '$GEN_DIR'"

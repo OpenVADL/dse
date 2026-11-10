@@ -14,7 +14,7 @@ VARIANT=''
 MICROARCHITECTURE=5stage
 CLOCK_PERIOD=5
 CACHE=auto
-VADL_CMD="${VADL_CMD:-openvadl}"
+OPENVADL="${OPENVADL:-openvadl}"
 
 usage() {
   cat <<EOF
@@ -39,7 +39,7 @@ Sources and outputs: gen/VARIANT/rtl/MICROARCHITECTURE/.
 SystemVerilog and netlist: build/ within that directory.
 Logs, timings, and metadata: results/VARIANT/rtl/MICROARCHITECTURE/.
 Hardware inputs: hardware/yosys/, hardware/openroad/, and hardware/pdk/sky130/.
-Set VADL_CMD to select the OpenVADL executable. Default: openvadl.
+Set OPENVADL to select the OpenVADL executable. Default: openvadl.
 Relative paths start at the dse project root. Requires Bash 3.2 or newer.
 EOF
 }
@@ -70,9 +70,9 @@ esac
 [[ "$CLOCK_PERIOD" =~ ^[0-9]+([.][0-9]+)?$ ]] && [[ "$CLOCK_PERIOD" =~ [1-9] ]] ||
   die '--clock-period requires a positive decimal number in nanoseconds'
 case "$SPEC" in /*) ;; *) SPEC="$ROOT/$SPEC" ;; esac
-VADL_CMD="$(absolute_command "$VADL_CMD")" || die 'OpenVADL not found. Set VADL_CMD or add openvadl to PATH'
+OPENVADL="$(absolute_command "$OPENVADL")" || die 'OpenVADL not found. Set OPENVADL or add openvadl to PATH'
 CACHE="$(select_compiler_cache "$CACHE")" || exit $?
-VADL_CMD="$VADL_CMD" bash "$ROOT/scripts/check-deps.sh" rtl --cache "$CACHE"
+OPENVADL="$OPENVADL" bash "$ROOT/scripts/check-deps.sh" rtl --cache "$CACHE"
 use_compiler_cache "$CACHE"
 
 TARGET="$TOP_MODULE"
@@ -101,7 +101,7 @@ mkdir -p "$GEN_DIR"
 # OpenVADL appends rtl/ to its output path. Emit into the selected project directory.
 RTL_GENERATION_DIR="$(mktemp -d "$GEN_DIR/.generation.XXXXXX")"
 ln -s "$GEN_DIR" "$RTL_GENERATION_DIR/rtl"
-run "$VADL_CMD" rtl "$SPEC" "${MODEL_ARGS[@]}" --top-module "$TOP_MODULE" \
+run "$OPENVADL" rtl "$SPEC" "${MODEL_ARGS[@]}" --top-module "$TOP_MODULE" \
   --timings --reset-vector=reset_vector -o "$RTL_GENERATION_DIR"
 rm -rf "$RTL_GENERATION_DIR"
 RTL_GENERATION_DIR=''

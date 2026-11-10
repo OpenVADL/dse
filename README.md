@@ -154,13 +154,21 @@ Add the directory containing the built `openroad` binary to `PATH`.
 
 Run the entry scripts from any directory. The build scripts and dependency
 checker use the `dse` project root as their working directory. Relative paths,
-including `--output-dir`, the RTL specification, and `PYTHON`, resolve from that root.
+including `--output-dir`, the RTL specification, `PYTHON`, and `OPENVADL`, resolve
+from that root.
 Absolute paths work as given. The Python environment setup script finds the
 project root automatically when its optional `ROOT` argument is omitted.
 
 All artifact build scripts require `--variant NAME`:
 `rv32i`, `crc0`, `crc1`, `crc2`, or `crc012`. The `crc012` variant includes all
 three custom instructions.
+
+Set `OPENVADL` to select an OpenVADL executable by name or path for all build
+scripts and `check-deps.sh`. The default is `openvadl` from `PATH`.
+
+```sh
+OPENVADL=nativevadl ./scripts/build-iss.sh --variant rv32i
+```
 
 ### Build artifacts
 
@@ -206,7 +214,6 @@ The script selects the specification and top module for the bundled
 [OpenVADL pipelines](https://github.com/OpenVADL/openvadl/tree/59211d05e6752e4ff07a3ede960b7d298f2082f4/sys/risc-v/mia).
 Defaults: `5stage` and a 5 ns clock period.
 Use `--clock-period NS` to change the period and `--help` for specification and module overrides.
-Set `VADL_CMD` to select another OpenVADL executable.
 
 Sources and outputs go in `gen/VARIANT/rtl/MICROARCHITECTURE/`, with SystemVerilog and netlists in its `build/` subdirectory.
 Check dependencies with `./scripts/check-deps.sh rtl`.

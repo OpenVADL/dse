@@ -105,7 +105,8 @@ check_common_dependencies() {
   else
     MISSING_DEPENDENCIES+=('Python >= 3.11')
   fi
-  for tool in openvadl make git; do check_tool "$tool"; done
+  check_tool "${OPENVADL:-openvadl}"
+  for tool in make git; do check_tool "$tool"; done
   check_tool jq 1.6
   check_tool ninja 1.8
   for tool in ar nm ranlib; do check_dependency "$tool" command -v "$tool" || :; done
@@ -159,7 +160,7 @@ probe_jdk() {
 
 check_rtl_dependencies() {
   local path
-  check_dependency OpenVADL probe_tool "${VADL_CMD:-openvadl}" || :
+  check_dependency OpenVADL probe_tool "${OPENVADL:-openvadl}" || :
   check_tool jq 1.6
   check_dependency 'JDK >= 17' probe_jdk || :
   check_dependency sbt command -v sbt || :

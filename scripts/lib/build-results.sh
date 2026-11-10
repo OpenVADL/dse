@@ -59,12 +59,10 @@ specification_hashes() {
 # ---------------------------------------------------------------------------
 write_build_results() {
   local status="$1" total hashes binary_version='' record metadata temporary csv versions details='{}' inputs='{}'
-  local vadl_command=openvadl
   total="$(elapsed "$STARTED" "$(now)")" || return 1
   hashes="$(specification_hashes)" || return 1
   if [ "$status" -eq 0 ] && [ -n "$BINARY" ]; then binary_version="$(tool_version "$BINARY" --version)"; fi
-  if [ "$ARTIFACT" = rtl ]; then vadl_command="$VADL_CMD"; fi
-  versions="$(jq -n --arg openvadl "$(tool_version "$vadl_command" --version)" \
+  versions="$(jq -n --arg openvadl "$(tool_version "$OPENVADL" --version)" \
     '{openvadl: $openvadl}')" || return 1
   if [ "$ARTIFACT" != rtl ]; then
     versions="$(printf '%s\n' "$versions" | jq --arg make "$(tool_version make --version)" \

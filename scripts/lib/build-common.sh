@@ -39,6 +39,7 @@ prepare_backend_build() {
   PYTHON="$(select_python)" || exit 1
   CACHE="$(select_compiler_cache "$CACHE")" || exit $?
   PYTHON="$PYTHON" bash "$ROOT/scripts/check-deps.sh" "$1" --cache "$CACHE" || exit 1
+  OPENVADL="$(absolute_command "${OPENVADL:-openvadl}")" || die 'OpenVADL not found. Set OPENVADL or add openvadl to PATH'
   use_project_python "$ROOT" || exit 1
   [ -n "$JOBS" ] || JOBS="$(cpu_count)"
 }

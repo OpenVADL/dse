@@ -28,7 +28,7 @@ Usage: $(basename "$0") {iss|lcb|rtl} [--cache {auto|ccache|sccache|none}]
 Check build dependencies and list missing requirements.
 ISS and LCB try python3, then python, and require Python 3.11 or newer.
 Set PYTHON to select the build interpreter without fallback.
-For RTL, set VADL_CMD to select OpenVADL. Default: openvadl.
+Set OPENVADL to select the OpenVADL executable. Default: openvadl.
 Relative paths start at the dse project root.
 EOF
 }

@@ -33,7 +33,7 @@ usage() {
   cat <<EOF
 Usage: $(basename "$0") --variant NAME [options]
 
-Generate and build the LLVM toolchain with OpenVADL from PATH.
+Generate and build the LLVM toolchain with OpenVADL.
 
   --variant NAME       Required: rv32i, crc0, crc1, crc2, or crc012.
   -t, --target NAME    LLVM target name. Default: selected ISA in lowercase.
@@ -52,6 +52,7 @@ Relative paths start at the dse project root.
 The script manages the project's Python environment and its packages.
 The script tries python3, then python, and requires Python 3.11 or newer.
 Set PYTHON to select the base Python executable without fallback.
+Set OPENVADL to select the OpenVADL executable. Default: openvadl.
 The upstream RISCV target is built alongside the generated target.
 EOF
 }
@@ -142,7 +143,7 @@ patch_makefile_options() {
 report "Step 1: Generating LLVM sources"
 STAGE=generation
 start="$(now)"
-run openvadl lcb "$SPEC" --output "$OUTPUT_DIR" --target "$TARGET" "${MODEL_ARGS[@]}"
+run "$OPENVADL" lcb "$SPEC" --output "$OUTPUT_DIR" --target "$TARGET" "${MODEL_ARGS[@]}"
 GENERATION_SECONDS="$(elapsed "$start" "$(now)")"
 
 # ---------------------------------------------------------------------------
