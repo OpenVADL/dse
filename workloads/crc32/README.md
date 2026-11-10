@@ -20,10 +20,9 @@ The runner prints the full-program instruction count from QEMU's `insn` plugin
 and records it in `crc32-iss.csv` and `run.json`. The count includes startup,
 input setup, and checksum output. It doesn't measure hardware cycles.
 Totals can vary slightly during HTIF shutdown.
-The current generated compiler selects `crc0` and `crc2` automatically, but doesn't
-select `crc1`. Check `crc_32.s` and `run.json` for the selected instructions.
+Check `crc_32.s` and `run.json` for the selected custom instructions.
 
 `crc_32.c`, `random.c`, and `random.h` originate from
-`vadl/test/resources/embench/src/crc32-dse-vadl/` in OpenVADL checkout
-`6b4131ad889f407340a6a226411dd6c3fb6c0d3c`.
+`vadl/test/resources/embench/src/crc32-dse-vadl/` in OpenVADL commit
+[`9b2c1b20aca9cf317e968f7863f746d5a396029b`](https://github.com/OpenVADL/openvadl/tree/9b2c1b20aca9cf317e968f7863f746d5a396029b/vadl/test/resources/embench/src/crc32-dse-vadl).
 The CRC source keeps its notices. The GPL version 3 license is in `COPYING`.

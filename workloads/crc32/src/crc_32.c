@@ -17,10 +17,22 @@
 #include "crc32.h"
 #include "random.h"
 
+#ifdef __TURBOC__
+#pragma warn -cln
+#endif
+
+typedef unsigned char BYTE;
+typedef unsigned long DWORD;
+typedef unsigned short WORD;
+
+#define UPDC32(octet,crc) (crc_32_tab[((crc)^((BYTE)octet)) & 0xff] ^ ((crc) >> 8))
+
+typedef DWORD UNS_32_BITS;
+
 /* Copyright (C) 1986 Gary S. Brown.  You may use this program, or
    code or tables extracted from it, as desired without restriction.*/
 
-static const uint32_t crc_32_tab[] = {	/* CRC polynomial 0xedb88320 */
+static const UNS_32_BITS crc_32_tab[] = {	/* CRC polynomial 0xedb88320 */
   0x00000000, 0x77073096, 0xee0e612c, 0x990951ba, 0x076dc419, 0x706af48f,
   0xe963a535, 0x9e6495a3, 0x0edb8832, 0x79dcb8a4, 0xe0d5e91e, 0x97d2d988,
   0x09b64c2b, 0x7eb17cbd, 0xe7b82d07, 0x90bf1d91, 0x1db71064, 0x6ab020f2,
@@ -66,11 +78,18 @@ static const uint32_t crc_32_tab[] = {	/* CRC polynomial 0xedb88320 */
   0xb40bbe37, 0xc30c8ea1, 0x5a05df1b, 0x2d02ef8d
 };
 
-uint32_t crc32pseudo(void)
+DWORD
+crc32pseudo ()
 {
-    uint32_t crc = 0xffffffffu;
-    for (unsigned i = 0; i < MAX_RANDOM_NUMS; ++i) {
-        crc = crc_32_tab[(crc ^ (unsigned char)random_numbers[i]) & 0xffu] ^ (crc >> 8);
+  int i;
+  register DWORD oldcrc32;
+
+  oldcrc32 = 0xFFFFFFFF;
+
+  for (i = 0; i < 1024; ++i)
+    {
+      oldcrc32 = UPDC32 (random_numbers[i], oldcrc32);
     }
-    return ~crc;
+
+  return ~oldcrc32;
 }

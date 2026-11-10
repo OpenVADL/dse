@@ -3,6 +3,6 @@
 
 #include <stdint.h>
 
-uint32_t crc32pseudo(void);
+unsigned long crc32pseudo(void);
 
 #endif
