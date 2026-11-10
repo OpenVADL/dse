@@ -58,7 +58,8 @@ RV32I+crc2, and RV32I+crc0/1/2.
 
 Compare each variant's checksum with the known result `65842ca9`.
 
-TODO: Describe the microarchitectures and hardware comparisons.
+For the hardware generator, evaluate the impact of the custom instructions
+on size and timing of the synthesized design.
 
 ## Artifacts
 
@@ -66,7 +67,7 @@ TODO: Describe the microarchitectures and hardware comparisons.
 |---|---|
 | Compiler, assembler, disassembler, and linker | OpenVADL LLVM backend generation, followed by an LLVM build |
 | Functional instruction set simulator (ISS) | OpenVADL QEMU frontend generation, followed by a QEMU build |
-| RTL | OpenVADL RTL generation, sbt SystemVerilog emission, Yosys synthesis, and OpenROAD placement and timing analysis |
+| Hardware synthesis, Technology mapping, Placement and Timing Analysis| OpenVADL RTL generation, sbt SystemVerilog emission, Yosys synthesis, and OpenROAD placement and timing analysis |
 
 We use the functional ISS to test instruction behavior and check the workload's
 results.
@@ -82,7 +83,7 @@ scripts/
   lib/                      # Shared Bash probes, shell helpers, and ISS results
   build-lcb.sh              # Generate and build the LLVM toolchain
   build-iss.sh              # Generate and build the QEMU ISS
-  build-rtl.sh              # Generate RTL and run the Sky130 hardware flow
+  build-rtl.sh              # Generate the hardware description on RTL and run the Sky130 ASIC flow
   run-crc32.sh              # Build and test the workload
 hardware/                   # Yosys/OpenROAD templates and Sky130 PDK inputs
 gen/                        # Generated sources and binaries
@@ -154,8 +155,7 @@ Add the directory containing the built `openroad` binary to `PATH`.
 
 Run the entry scripts from any directory. The build scripts and dependency
 checker use the `dse` project root as their working directory. Relative paths,
-including `--output-dir`, the RTL specification, `PYTHON`, and `OPENVADL`, resolve
-from that root.
+including `--output-dir`, `PYTHON`, and `OPENVADL`, resolve from that root.
 Absolute paths work as given. The Python environment setup script finds the
 project root automatically when its optional `ROOT` argument is omitted.
 
@@ -212,7 +212,7 @@ selection. `--cache none` disables compiler caching.
 
 The script selects the specification and top module for the bundled
 [OpenVADL pipelines](https://github.com/OpenVADL/openvadl/tree/59211d05e6752e4ff07a3ede960b7d298f2082f4/sys/risc-v/mia).
-Defaults: `5stage` and a 5 ns clock period.
+Defaults: `5stage` and a 5 ns clock period. The clock period is used for timing driven placement optimization and as a baseline for static timing analysis.
 Use `--clock-period NS` to change the period and `--help` for specification and module overrides.
 
 Sources and outputs go in `gen/VARIANT/rtl/MICROARCHITECTURE/`, with SystemVerilog and netlists in its `build/` subdirectory.
@@ -229,7 +229,7 @@ Check dependencies with `./scripts/check-deps.sh rtl`.
 The standalone [workload](workloads/crc32/README.md) uses a small Makefile and
 bare-metal runtime. It fills an array of 1,024 words before the CRC loop.
 The expected result is `65842ca9` for all five variants.
-RTL workload execution is unavailable and is always recorded as skipped.
+Hardware generation for this workload is unavailable and is always recorded as skipped.
 
 Compile and test the RV32I workload on the ISS:
 
@@ -241,7 +241,7 @@ Compile and test the RV32I workload on the ISS:
 |---|---|
 | `--skip-compile` | Reuse an existing executable for the selected variant |
 | `--skip-iss` | Skip ISS execution and its checksum check |
-| `--skip-rtl` | Accepted for compatibility. RTL execution is always skipped |
+| `--skip-rtl` | Accepted for compatibility. Hardware generation is always skipped |
 | `--timeout SECONDS` | Limit ISS execution time. Default: 30 seconds, positive integer |
 | `--output-dir DIR` | Set the artifact root. Default: `gen/VARIANT` |
 | `--lcb-bin DIR` | Select a directory with generated LLVM executables |
@@ -283,7 +283,7 @@ The scripts write logs and results to `results/VARIANT/`:
 |---|---|
 | `build-lcb.log` | LLVM generation and build output |
 | `build-iss.log` | ISS generation and build output |
-| `rtl/MICROARCHITECTURE/build-rtl.log` | RTL generation, SystemVerilog emission, synthesis, placement, and timing output |
+| `rtl/MICROARCHITECTURE/build-rtl.log` | Hardware generation, SystemVerilog emission, synthesis, placement, and timing output |
 | `build-times.csv` | Generation and build times, build options, and compiler-cache settings |
 | `crc32-compile.log` | Workload compiler, assembler, and linker output |
 | `crc32-iss.log` | ISS simulation output |
@@ -295,4 +295,4 @@ Build timings report source generation and compilation separately. The ISS
 results report functional correctness. Skipped steps are marked as skipped.
 
 RTL logs, `run.json`, and `build-times.csv` go in `results/VARIANT/rtl/MICROARCHITECTURE/`.
-Hardware timing reports remain in the logs. RTL workload cycle measurements remain unimplemented.
+Hardware timing reports remain in the logs. Cycle measurements on the Verilator-based simulator remain unimplemented.
