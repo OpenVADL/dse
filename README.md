@@ -241,7 +241,6 @@ Compile and test the RV32I workload on the ISS:
 |---|---|
 | `--skip-compile` | Reuse an existing executable for the selected variant |
 | `--skip-iss` | Skip ISS execution and its checksum check |
-| `--skip-rtl` | Accepted for compatibility. Hardware generation is always skipped |
 | `--timeout SECONDS` | Limit ISS execution time. Default: 30 seconds, positive integer |
 | `--output-dir DIR` | Set the artifact root. Default: `gen/VARIANT` |
 | `--lcb-bin DIR` | Select a directory with generated LLVM executables |
