@@ -1,7 +1,10 @@
 // SPDX-FileCopyrightText : © 2026 TU Wien <vadl@tuwien.ac.at>
 // SPDX-License-Identifier: Apache-2.0
 
-import "../rv32iCustom"::{TargetIsa, RV32ICustomCrcBase, RV32ICustomCrc0, RV32ICustomCrc1, RV32ICustomCrc2, RV32ICustomCrc}
+model TargetIsa () : Id = {RV32ICustomCrc1}
+
+import "../rv32iCustom"::{RV32ICustomCrcBase, RV32ICustomCrc0, RV32ICustomCrc1, RV32ICustomCrc2, RV32ICustomCrc}
+  with (AsStr("TargetIsa=", $TargetIsa))
 
 micro architecture ThreeStage implements $TargetIsa() = {
   stage IF -> FetchResult = {
