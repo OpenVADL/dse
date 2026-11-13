@@ -23,7 +23,6 @@ Compile CRC32 with the generated LCB and check it on the generated ISS.
   --variant NAME       Required: rv32i, crc0, crc1, crc2, or crc012.
   --skip-compile       Reuse the workload ELF.
   --skip-iss           Skip simulation and the checksum check.
-  --skip-rtl           Accepted for compatibility. RTL execution is unavailable.
   --output-dir DIR     Artifact root. Default: gen/NAME.
   --lcb-bin DIR        Directory with generated LLVM executables.
   --target NAME        Generated LLVM target name.
@@ -49,7 +48,6 @@ while [ $# -gt 0 ]; do
     --timeout) need_arg "$@"; TIMEOUT="$2"; shift 2 ;;
     --skip-compile) SKIP_COMPILE=1; shift ;;
     --skip-iss) SKIP_ISS=1; shift ;;
-    --skip-rtl) shift ;;
     -h|--help) usage; exit 0 ;;
     *) die "unknown option '$1'" ;;
   esac
