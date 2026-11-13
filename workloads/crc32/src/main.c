@@ -18,7 +18,7 @@ int main(void)
     srand_precomputed(0);
     
     uint32_t crc;
-    for(int i = 0; i < 10000; i++) {
+    for(int i = 0; i < 1000; i++) {
       crc = crc32pseudo();
     }
 
