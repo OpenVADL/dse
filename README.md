@@ -272,8 +272,7 @@ Compilation also writes `crc32.dump`, the linked executable's disassembly with
 instruction addresses and bytes. The runner prints its path.
 
 The runner records the custom instructions selected in the kernel assembly.
-The current generated compiler doesn't automatically select `crc1` for the
-table load. The [workload notes](workloads/crc32/README.md) describe this limit.
+The [workload notes](workloads/crc32/README.md) gives additional information about the workload.
 
 ## Results
 
