@@ -25,7 +25,7 @@ for (unsigned i = 0; i < 1024; ++i) {
 }
 ```
 
-```asm
+```riscv
 # a0: input pointer, a1: crc, a2: table pointer, a3: input end
 .loop:
     lw      a4, 0(a0)
@@ -272,7 +272,7 @@ Compilation also writes `crc32.dump`, the linked executable's disassembly with
 instruction addresses and bytes. The runner prints its path.
 
 The runner records the custom instructions selected in the kernel assembly.
-The [workload notes](workloads/crc32/README.md) gives additional information about the workload.
+The [workload notes](workloads/crc32/README.md) give additional information about the workload.
 
 ## Results
 
