@@ -16,7 +16,12 @@ static void putchar_htif(unsigned char value)
 int main(void)
 {
     srand_precomputed(0);
-    uint32_t crc = crc32pseudo();
+    
+    uint32_t crc;
+    for(int i = 0; i < 10000; i++) {
+      crc = crc32pseudo();
+    }
+
     const char prefix[] = "CRC32=";
     const char digits[] = "0123456789abcdef";
     for (unsigned i = 0; i < sizeof(prefix) - 1; ++i) {
