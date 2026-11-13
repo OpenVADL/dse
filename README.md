@@ -25,7 +25,7 @@ for (unsigned i = 0; i < 1024; ++i) {
 }
 ```
 
-```riscv
+```mips
 # a0: input pointer, a1: crc, a2: table pointer, a3: input end
 .loop:
     lw      a4, 0(a0)
