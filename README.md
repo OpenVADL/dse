@@ -212,7 +212,7 @@ selection. `--cache none` disables compiler caching.
 
 The script selects the specification and top module for the bundled
 [OpenVADL pipelines](https://github.com/OpenVADL/openvadl/tree/59211d05e6752e4ff07a3ede960b7d298f2082f4/sys/risc-v/mia).
-Defaults: `5stage` and a 5 ns clock period. The clock period is used for timing driven placement optimization and as a baseline for static timing analysis.
+Defaults: `5stage` and a 20 ns clock period. The clock period is used for timing driven placement optimization and as a baseline for static timing analysis.
 Use `--clock-period NS` to change the period and `--help` for specification and module overrides.
 
 Sources and outputs go in `gen/VARIANT/rtl/MICROARCHITECTURE/`, with SystemVerilog and netlists in its `build/` subdirectory.

@@ -12,7 +12,7 @@ SPEC=''
 TOP_MODULE=''
 VARIANT=''
 MICROARCHITECTURE=5stage
-CLOCK_PERIOD=5
+CLOCK_PERIOD=20
 CACHE=auto
 OPENVADL="${OPENVADL:-openvadl}"
 
@@ -30,7 +30,7 @@ Select a bundled pipeline and the same ISA variants as ISS and LCB.
                        The file must define a TargetIsa model.
   --top-module MODULE  Override the generated top module.
                        Default: ThreeStage or FiveStage for the selected pipeline.
-  --clock-period NS    Positive clock period in nanoseconds. Default: 5.
+  --clock-period NS    Positive clock period in nanoseconds. Default: 20.
   --cache TOOL         auto, ccache, sccache, or none. Default: auto.
                        auto prefers ccache, then sccache, then none.
   -h, --help           Show this help.
